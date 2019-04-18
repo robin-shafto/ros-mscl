@@ -9,6 +9,7 @@
 #include "mscl/MicroStrain/Inertial/InertialNode.h" 
 #include "mscl/Exceptions.h" 
 #include "mscl/MicroStrain/MIP/MipTypes.h"
+#include "tf/tf.h"
 
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "hello_world_node");
@@ -24,6 +25,9 @@ int main(int argc, char** argv) {
 		mscl::Connection connection = mscl::Connection::Serial("/dev/ttyACM0");
 		mscl::InertialNode node(connection);
 		node.enableDataStream(mscl::MipTypes::CLASS_AHRS_IMU);
+		float roll = 0;
+		float pitch = 0;
+		float yaw = 0;
 
 		while (ros::ok()) {
 			mscl::MipDataPackets packets = node.getDataPackets(500);
@@ -34,17 +38,33 @@ int main(int argc, char** argv) {
 				mscl::MipDataPoints points = packet.data();
 				
 				for (mscl::MipDataPoint dataPoint : points) {
-					dataPoint.channelName();
 					dataPoint.as_float();
-
-	                        	sensor_msgs::Imu imu_msg;
-        	                	imu_msg.header.stamp = ros::Time::now();
-                	        	imu_msg.header.frame_id ="/base_link";
-	
-        	                	imu_msg.angular_velocity.x = 3;
-                	        	imu_msg.angular_velocity.y = dataPoint.as_float();
-                       			chatter_pub.publish(imu_msg);
+					dataPoint.channelName();
+//					ROS_INFO(dataPoint.channelName().c_str());
+					if (strcmp(dataPoint.channelName().c_str(), "roll") == 0) {
+						roll = dataPoint.as_float() / 3.1;
+					}
+					else if (strcmp(dataPoint.channelName().c_str(), "pitch") == 0) {
+						pitch = dataPoint.as_float() / 3.1;
+					}
+					else {
+						yaw = dataPoint.as_float() / 3.1;
+					}
 				}
+
+				sensor_msgs::Imu imu_msg;
+                                imu_msg.header.stamp = ros::Time::now();
+                                imu_msg.header.frame_id ="/base_link";
+
+//`                                tf::Quaternion q = tf::createQuaternionFromRPY(roll, pitch, yaw);
+//                                imu_msg.orientation.x = q.x();
+//                                imu_msg.orientation.y = q.y();
+//                                imu_msg.orientation.z = q.z();
+//                                imu_msg.orientation.w = q.w();
+                                imu_msg.orientation.x = roll;
+				imu_msg.orientation.y = pitch;
+				imu_msg.orientation.z = yaw;
+				chatter_pub.publish(imu_msg);
 			}
 		}
 	}
